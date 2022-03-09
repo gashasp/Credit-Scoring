@@ -1,0 +1,233 @@
+---
+title: "Credit Scoring Analysis"
+author: "Gasha Sarwono"
+output: 
+  html_document:
+    theme: flatly
+    higlight: zenburn
+    toc: true
+    toc_float:
+      collapsed: true
+    df_print: paged
+---
+
+![](D:\Data Scientist\Belajar lain\Credit Scoring\Credit-Scoring.jpg)
+
+## Pendahuluan
+
+### Latar Belakang
+
+Berikut ini adalah data risk rating pembiayaan pada sebuah perbankan.
+
+Tujuan saya menggunakan data ini adalah untuk membuat Credit Scoring pada nasabah perbankan. Credit Scoring sendiri merupakan metode yang biasanya digunakan dunia perbankan untuk melihat dan menilai resiko yang dimiliki oleh nasabah yang akan melakukan pembiayaan. Dengan adanya analisis Credit Scoring ini dapat membantu bank untuk bisa lebih efektif dan efisien dalam menentukan profil resiko yang dimiliki oleh nasabah.
+
+**Deskripsi Data**
+
+- kode_kontrak: Kontrak nasabah dengan bank
+
+- pendapatan_setahun_juta: Pendapatan nasabah pertahun (dalam juta)
+
+- kpr_aktif: Status kepemilikan KPR yang masih aktif
+
+- durasi_pinjaman_bulan: Tenor pinjaman nasabah
+
+- jumlah_tanggungan: Jumlah anggota keluarga yang dibiayai
+
+- rata_rata_overdue: Kategori rata-rata keterlambatan
+
+- risk_rating: Rating resiko nasabah
+
+**Dataset**
+
+[Kaggle - Credit Scoring](https://www.kaggle.com/erameilani/credit-scoring/code)
+
+## Set Up
+
+**Aktifkan Library**
+
+Mengaktifkan library yang akan dipakai
+
+```{r message=FALSE, warning=FALSE}
+library("openxlsx") #read excel
+library("C50") #decision tree model
+library("tidyverse") #preprocessing data
+library("reshape2") #confusion matrix
+```
+
+**Import Data**
+
+Import data yang akan digunakan
+
+```{r }
+rawdatacredit <- read.xlsx("credit_scoring.xlsx")
+rawdatacredit
+```
+
+**Memeriksa Tipe Data**
+
+```{r}
+glimpse(rawdatacredit)
+```
+
+**Memeriksa Missing Value**
+
+```{r}
+colSums(is.na(rawdatacredit))
+```
+
+Tidak ada data yang kosong untuk setiap variabel
+
+## Preprocessing Data
+
+### Class dan Input Varibel
+
+```{r}
+#CLASS
+#ubah risk_rating menjadi tipe data factor (karena akan digunakan sebagai class)
+rawdatacredit$risk_rating <- as.factor(rawdatacredit$risk_rating) 
+
+#INPUT
+datacredit <- 
+  rawdatacredit %>% 
+  select("durasi_pinjaman_bulan", "jumlah_tanggungan")
+
+datacredit
+```
+
+### Data Train dan Data Test
+
+Data Train untuk melakukan training model, Data Test untuk melakukan testing pada model
+
+```{r}
+#Indeks
+set.seed(1616) #menyeragamkan hasil random antar tiap komputer
+indeks_data <- sample(900, 800) #800 data untuk data train
+
+#Data Train (800 data)
+input_train_data <- datacredit[indeks_data,]
+
+#Data Train Class/Target
+class_train_data <- rawdatacredit[indeks_data,]$risk_rating
+
+#Data Test (100 data)
+input_test_data <- datacredit[-indeks_data,]
+```
+
+## Modelling
+
+### Decision Tree
+
+Untuk model yang akan digunakan yaitu model ‘Decison Tree’. Yaitu model yang powerful dan populer untuk keperluan klasifikasi dan prediksi. Struktur decision tree terbagi dalam 3 elemen utama : root node, leaf node, dan branch.
+
+- Root node atau node akar yaitu attribute paling awal yang diestimasi. 
+- Leaf node adalah hasil akhir yang menyimpan label atribute.
+- Branch adalah kemungkinan output dari estimasi attribute pada root node dan internal node.
+
+Decision tree biasa digunakan untuk mengeksplorasi dan menemukan pengetahuan baru, dikarenakan stuktur analisanya dimulai dari ‘akar’ atau root node yang menspesifikasi attribute pertama, dan kemudian dilanjutkan dengan spesifikasi attribute kedua berdasarkan output dari attribute pertama, dan begitu seterusnya.
+
+**Algoritma C5.0**
+
+Algoritma yang digunakan adalah Algoritma C5.0 , untuk C5.0 sendiri merupakan kode penamaan suatu algoritma untuk decision tree. Algoritma ini sering dikategorikan sebagai classification, dimana tujuannya adalah untuk mengkategorikan atau mengklasifikan sesuatu
+
+```{r}
+scoring_model <- C5.0(input_train_data,class_train_data)
+
+# Hasil model
+summary(scoring_model)
+```
+
+Insight:
+
+- Model membaca 800 data dengan 3 atribut (jumlah_tanggungan, durasi_pinjaman_bulan, risk_rating)
+
+- Jumlah leaf node yang dihasilkan adalah 6
+
+- Jumlah error yang dihasilkan adalah 22.6%
+
+- Variabel dengan siginifikansi terbesar adalah jumlah_tanggungan (100%) dan durasi_pinjaman_bulan (72.75%)
+
+```{r}
+plot(scoring_model)
+```
+
+### Prediction and Evaluation
+
+Setelah pembuatan model selesai dilakukan, selanjutnya adalah melakukan evaluasi dengan menggunakan data test. Sebelum melakukan evalasi, yang perlu dilakukan yaitu prediksi data
+
+```{r}
+#menggunakan model untuk prediksi testing set
+prediksi <- predict(scoring_model, input_test_data)
+prediksi
+```
+
+Hasil prediksi sesuai dengan jumlah baris data dari data test, dan juga sesuai dengan rentang nilai risk_rating yaitu 1 sampai dengan 5.
+
+Menggabungkan risk_rating dan prediksi kedalam data test
+
+```{r}
+input_test_data$risk_rating <- rawdatacredit[-indeks_data,]$risk_rating
+input_test_data$prediksi <- predict(scoring_model, input_test_data)
+
+input_test_data
+```
+
+Selanjutnya yaitu melihat distribusi mana yang terprediksi dengan benar dan sala dengan menggunakan Confusion Matrix yagg berguna untuk mempermudah dalam melihat hasil dan akurasi model yang kita buat dalam mengidentifikasi suatu masalah
+
+```{r}
+dcast(prediksi ~ risk_rating, data = input_test_data)
+```
+
+Jumlah data yang terprediksi benar
+
+```{r}
+input_test_data %>% filter(risk_rating == prediksi) %>% nrow()
+```
+
+Jumlah data yang terprediksi salah
+
+```{r}
+input_test_data %>% filter(risk_rating != prediksi) %>% nrow()
+```
+
+Insight:
+
+- Pada dataframe function dcast() header kolom paling atas menunjukkan risk_rating prediksi, sedangkan header paling kiri menunjukkan data risk_rating sebenarnya. Untuk diagonal menunjukkan jumlah data yang terprediksi dengan benar, dan sisanya menunjukkan data yang terprediksi dengan salah.
+
+- Terlihat jumlah yang terprediksi dengan benar (76) jauh lebih besar porsinya dibandingkan yang salah (26), artinya model mampu memberikan 76% klasifikasi yang tepat dengan tingkat error 26%.
+
+### Testing Model
+
+Setelah evaluasi model selesai, selanjutnya bisa dilakukan testing model dengan menggunakan data inputan baru.
+
+- EXAMPLE 1
+
+Melihat nilai risk rating dengan data jumlah_tanggungan = 1, durasi_pinjaman_bulan = 6
+
+```{r}
+example1 <- data.frame(jumlah_tanggungan = 1, durasi_pinjaman_bulan = 6)
+example1
+```
+```{r}
+predict(scoring_model, example1)
+```
+
+Dengan data jumlah_tanggungan = 6 dan durasi_pinjaman_bulan = 12, hasil risk rating yang dihasilkan adalah 4
+
+- EXAMPLE 2
+
+Melihat nilai risk rating dengan data jumlah_tanggungan = , durasi_pinjaman_bulan = 12
+
+```{r}
+example2 <- data.frame(jumlah_tanggungan = 6, durasi_pinjaman_bulan = 12)
+example2
+```
+```{r}
+predict(scoring_model, example2)
+```
+
+Dengan data jumlah_tanggungan = 6 dan durasi_pinjaman_bulan = 12, hasil risk rating yang dihasilkan adalah 4
+
+### Kesimpulan
+
+Dengan model yang sudah dibuat menggunakan decision tree, model dapat mengukur risk rating jika terdapat data yang baru. Untuk akurasi model sendiri yaitu sebesar 76%.
+
