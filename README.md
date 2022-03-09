@@ -8,4 +8,4 @@ Kaggle : https://www.kaggle.com/erameilani/credit-scoring/code
 
 ## --Result--
 You can also see on my RPubs : https://rpubs.com/gashasp/credit-score
-<img src="https://github.com/gashasp/Credit-Scoring/blob/main/Capturee.JPGG">
+<img src="https://github.com/gashasp/Credit-Scoring/blob/main/Capturee.JPG">
